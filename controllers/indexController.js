@@ -9,6 +9,10 @@ const checkAdmin = require('../middleware/checkAdmin');
 router.get('/', (req, res) => {
     res.render('index');
 });
+// Liên hệ
+router.get('/contact', (req, res) => {
+    res.render('contact');
+});
 // Xử lý đăng nhập + đăng ký + đăng xuất
 router.get('/login', (req, res) => {
     let error = req.session.error;
@@ -72,12 +76,33 @@ router.post('/register', async (req, res) => {
 });
 // xử lý trang quản lý
 router.get('/dashboard', checkAuth, async (req, res) => {
-
     const username = req.session.user.name;
     const role = req.session.user.role;
     const error = req.session.error;
     const success = req.session.success;
-    const questions = role == 'admin' ? await Question.find({}) : await Question.find({ user_id: req.session.user._id });
+    const questions = role == 'admin' ? await Question.find({}).populate('user_id').exec()
+        .then(questions => {
+            // Định dạng trường time_stamp cho mỗi câu hỏi
+            const formattedQuestions = questions.map(question => {
+                return {
+                    ...question._doc,
+                    time_stamp: question.time_stamp.toLocaleString('vi-VN'),
+                };
+            });
+            return formattedQuestions;
+        })
+        : await Question.find({ user_id: req.session.user._id }).populate('user_id').exec()
+            .then(questions => {
+                // Định dạng trường time_stamp cho mỗi câu hỏi
+                const formattedQuestions = questions.map(question => {
+                    return {
+                        ...question._doc,
+                        time_stamp: question.time_stamp.toLocaleString('vi-VN'),
+                    };
+                });
+                return formattedQuestions;
+            });
+
     delete req.session.error;
     delete req.session.success;
     res.render("dashboard", { questions: questions, username: username, role: role, error: error, success: success });
@@ -85,7 +110,7 @@ router.get('/dashboard', checkAuth, async (req, res) => {
 // xem chi tiết câu hỏi
 router.get('/questions/:id', checkAuth, async (req, res) => {
     const id = req.params.id;
-    const question = await Question.findOne({ _id: id });
+    const question = await Question.findOne({ _id: id }).populate('user_id');
     res.render("view", { question: question });
 });
 router.post('/questions/delete/:id', checkAuth, checkAdmin, async (req, res) => {
@@ -119,12 +144,12 @@ router.post('/questions/update/:id', checkAuth, checkAdmin, async (req, res) => 
     const { state } = req.body;
     const id = req.params.id;
     try {
-        await Question.updateOne({ _id: id }, { state });
+        const updatedQuestion = await Question.updateOne({ _id: id }, { state });
         req.session.success = true
-        return true
+        return res.json({ success: true, updatedQuestion });
     } catch (err) {
         req.session.error = true
-        return false
+        return res.json({ success: false });
     }
 });
 module.exports = router;

@@ -24,9 +24,13 @@ const questionSchema = new mongoose.Schema({
         default: 'pending'
     },
     user_id: {
-        type: String,
-        required: true,
-    }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    time_stamp: {
+        type: Date,
+        default: Date.now
+    },
 });
 
 const Question = mongoose.model('Question', questionSchema);
